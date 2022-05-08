@@ -9,6 +9,7 @@
 
 int open_dev(int no);
 int close_dev(int no);
+int create_dev(int no);
 int read_raw(struct buf * b);
 int write_raw(struct buf * b);
 

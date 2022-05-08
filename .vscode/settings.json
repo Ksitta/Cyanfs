@@ -3,6 +3,11 @@
     "files.associations": {
         "*.l": "bison",
         "*.y": "lex",
-        "limits": "c"
+        "limits": "c",
+        "string": "cpp",
+        "array": "cpp",
+        "string_view": "cpp",
+        "*.tcc": "cpp",
+        "fstream": "cpp"
     }
 }

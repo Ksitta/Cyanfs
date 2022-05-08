@@ -1,4 +1,6 @@
 make all --print-data-base --no-builtin-variables --no-builtin-rules --question
+make: *** No rule to make target 'all'.  Stop.
+
 # GNU Make 4.2.1
 # Built for x86_64-pc-linux-gnu
 # Copyright (C) 1988-2016 Free Software Foundation, Inc.
@@ -6,7 +8,7 @@ make all --print-data-base --no-builtin-variables --no-builtin-rules --question
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Sun May  8 12:07:10 2022
+# Make data base, printed on Sun May  8 20:16:13 2022
 
 # Variables
 
@@ -36,8 +38,8 @@ VSCODE_NLS_CONFIG = {"locale":"zh-cn","availableLanguages":{"*":"zh-cn"},"_langu
 _ = /mnt/c/Users/ksitta/AppData/Local/Programs/Microsoft VS Code/bin/code
 # environment
 hw = /home/ksitta/hw
-# makefile (from 'Makefile', line 1)
-MAKEFILE_LIST :=  Makefile
+# makefile
+MAKEFILE_LIST := 
 # 'override' directive
 GNUMAKEFLAGS := 
 # environment
@@ -55,7 +57,7 @@ PATH = /home/ksitta/.vscode-server/bin/57fd6d0195bb9b9d1b49f6da5db789060795de47/
 # environment
 VSCODE_LOG_STACK = false
 # environment
-VSCODE_IPC_HOOK_CLI = /tmp/vscode-ipc-7244cf42-f49c-49f4-9e86-481f834069bd.sock
+VSCODE_IPC_HOOK_CLI = /tmp/vscode-ipc-ca1c95aa-3ca9-460f-ae7b-1635be4c3e26.sock
 # default
 .FEATURES := target-specific order-only second-expansion else-if shortest-stem undefine oneshell archives jobserver output-sync check-symlink load
 # environment
@@ -69,7 +71,7 @@ PWD = /home/ksitta/hw/filesystem
 # default
 .LOADED := 
 # environment
-WSL_INTEROP = /run/WSL/1308_interop
+WSL_INTEROP = /run/WSL/10_interop
 # environment
 VSCODE_AMD_ENTRYPOINT = vs/workbench/api/node/extensionHostProcess
 # environment
@@ -97,7 +99,7 @@ MAKE_VERSION := 4.2.1
 # environment
 USER = ksitta
 # makefile
-.DEFAULT_GOAL := all
+.DEFAULT_GOAL := 
 # environment
 NAME = Code
 # automatic
@@ -146,10 +148,8 @@ TERM = xterm-256color
 VSCODE_EXTHOST_WILL_SEND_SOCKET = true
 # environment
 WSL_DISTRO_NAME = Ubuntu
-# environment
-MOTD_SHOWN = update-motd
 # variable set hash-table stats:
-# Load=69/1024=7%, Rehash=0, Collisions=4/97=4%
+# Load=68/1024=7%, Rehash=0, Collisions=4/90=4%
 
 # Pattern-specific Variable Values
 
@@ -157,9 +157,9 @@ MOTD_SHOWN = update-motd
 
 # Directories
 
-# . (device 2064, inode 371660): 17 files, no impossibilities.
+# . (device 2064, inode 371660): 6 files, no impossibilities.
 
-# 17 files, no impossibilities in 1 directories.
+# 6 files, no impossibilities in 1 directories.
 
 # Implicit Rules
 
@@ -168,67 +168,25 @@ MOTD_SHOWN = update-motd
 # Files
 
 # Not a target:
-file.cpp:
-#  Implicit rule search has been done.
-#  Last modified 2022-05-07 10:36:34.7106124
-#  File has been updated.
-#  Successfully updated.
-
-all: bio.cpp main.cpp fs.cpp file.cpp
+all:
 #  Command line target.
-#  Implicit rule search has not been done.
-#  Implicit/static pattern stem: ''
+#  Implicit rule search has been done.
 #  File does not exist.
-#  File has been updated.
-#  Needs to be updated (-q is set).
-# automatic
-# @ := all
-# automatic
-# % := 
-# automatic
-# * := 
-# automatic
-# + := bio.cpp main.cpp fs.cpp file.cpp
-# automatic
-# | := 
-# automatic
-# < := bio.cpp
-# automatic
-# ^ := bio.cpp main.cpp fs.cpp file.cpp
-# automatic
-# ? := bio.cpp main.cpp fs.cpp file.cpp
-# variable set hash-table stats:
-# Load=8/32=25%, Rehash=0, Collisions=1/11=9%
-#  recipe to execute (from 'Makefile', line 2):
-	g++ *.cpp -o main
-	
-
-# Not a target:
-.SUFFIXES:
-#  Implicit rule search has not been done.
-#  Modification time never checked.
 #  File has not been updated.
 
 # Not a target:
 Makefile:
 #  Implicit rule search has been done.
-#  Last modified 2022-05-07 10:27:53.7406124
+#  File does not exist.
 #  File has been updated.
-#  Successfully updated.
+#  Failed to be updated.
 
 # Not a target:
-main.cpp:
+makefile:
 #  Implicit rule search has been done.
-#  Last modified 2022-05-07 10:16:18.9806124
+#  File does not exist.
 #  File has been updated.
-#  Successfully updated.
-
-# Not a target:
-fs.cpp:
-#  Implicit rule search has been done.
-#  Last modified 2022-05-07 10:32:41.8006124
-#  File has been updated.
-#  Successfully updated.
+#  Failed to be updated.
 
 # Not a target:
 .DEFAULT:
@@ -237,26 +195,26 @@ fs.cpp:
 #  File has not been updated.
 
 # Not a target:
-bio.cpp:
+GNUmakefile:
 #  Implicit rule search has been done.
-#  Last modified 2022-05-07 10:41:32.8706124
+#  File does not exist.
 #  File has been updated.
-#  Successfully updated.
+#  Failed to be updated.
 
 # files hash-table stats:
-# Load=8/1024=1%, Rehash=0, Collisions=0/24=0%
+# Load=6/1024=1%, Rehash=0, Collisions=0/15=0%
 # VPATH Search Paths
 
 # No 'vpath' search paths.
 
 # No general ('VPATH' variable) search path.
 
-# strcache buffers: 1 (0) / strings = 22 / storage = 165 B / avg = 7 B
-# current buf: size = 8162 B / used = 165 B / count = 22 / avg = 7 B
+# strcache buffers: 1 (0) / strings = 14 / storage = 113 B / avg = 8 B
+# current buf: size = 8162 B / used = 113 B / count = 14 / avg = 8 B
 
-# strcache performance: lookups = 33 / hit rate = 33%
+# strcache performance: lookups = 17 / hit rate = 17%
 # hash-table stats:
-# Load=22/8192=0%, Rehash=0, Collisions=1/33=3%
-# Finished Make data base on Sun May  8 12:07:10 2022
+# Load=14/8192=0%, Rehash=0, Collisions=1/17=6%
+# Finished Make data base on Sun May  8 20:16:13 2022
 
  

@@ -3,10 +3,27 @@
 #include "fs.h"
 
 int devs[100];
+int nbitmap = FSSIZE / (BSIZE * 8) + 1;
+int ninodeblocks = NINODES / IPB + 1;
+
+int create_dev(int no){
+    devs[no] = creat(("./raw_data_" + std::to_string(no)).c_str(), S_IRUSR | S_IWUSR);
+    lseek(devs[no], BSIZE, SEEK_SET);
+    int nmeta = 2 + ninodeblocks + nbitmap;
+	int nblocks = FSSIZE - nmeta;
+    struct superblock sb;
+    sb.magic = FSMAGIC;
+	sb.size = FSSIZE;
+	sb.nblocks = nblocks;
+	sb.ninodes = NINODES;
+	sb.inodestart = 2;
+	sb.bmapstart = 2 + ninodeblocks;
+    return devs[no];
+}
 
 int open_dev(int no){
     assert(devs[no] == 0);
-    devs[no] = open(("./raw_data_" + std::to_string(no)).c_str(), O_RDWR | O_CREAT, O_DIRECT | O_NOATIME);
+    devs[no] = open(("./raw_data_" + std::to_string(no)).c_str(), O_RDWR, O_DIRECT | O_NOATIME);
     return no;
 }
 
