@@ -288,7 +288,7 @@ void itrunc(struct inode *ip)
 // Read data from inode.
 // If user_dst==1, then dst is a user virtual address;
 // otherwise, dst is a kernel address.
-int readi(struct inode *ip, char* dst, uint off, uint n)
+int readi(struct inode *ip, void* dst, uint off, uint n)
 {
 	uint tot, m;
 	struct buf *bp;
@@ -314,7 +314,7 @@ int readi(struct inode *ip, char* dst, uint off, uint n)
 // Returns the number of bytes successfully written.
 // If the return value is less than the requested n,
 // there was an error of some kind.
-int writei(struct inode *ip, char * src, uint off, uint n)
+int writei(struct inode *ip, void* src, uint off, uint n)
 {
 	uint tot, m;
 	struct buf *bp;
@@ -354,7 +354,7 @@ struct inode *dirlookup(struct inode *dp, char *name, uint *poff)
 		panic("dirlookup not DIR");
 
 	for (off = 0; off < dp->size; off += sizeof(de)) {
-		if (readi(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
+		if (readi(dp, &de, off, sizeof(de)) != sizeof(de))
 			panic("dirlookup read");
 		if (de.inum == 0)
 			continue;
@@ -381,10 +381,12 @@ int dirls(struct inode *dp)
 
 	count = 0;
 	for (off = 0; off < dp->size; off += sizeof(de)) {
-		if (readi(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
+		if (readi(dp, &de, off, sizeof(de)) != sizeof(de)){
 			panic("dirlookup read");
-		if (de.inum == 0)
+		}
+		if (de.inum == 0){
 			continue;
+		}
 		printf("%s\n", de.name);
 		count++;
 	}
@@ -405,14 +407,14 @@ int dirlink(struct inode *dp, char *name, uint inum)
 
 	// Look for an empty dirent.
 	for (off = 0; off < dp->size; off += sizeof(de)) {
-		if (readi(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
+		if (readi(dp, &de, off, sizeof(de)) != sizeof(de))
 			panic("dirlink read");
 		if (de.inum == 0)
 			break;
 	}
 	strncpy(de.name, name, DIRSIZ);
 	de.inum = inum;
-	if (writei(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
+	if (writei(dp, &de, off, sizeof(de)) != sizeof(de))
 		panic("dirlink");
 	return 0;
 }

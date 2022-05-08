@@ -88,8 +88,9 @@ void iunlockput(struct inode *);
 void iupdate(struct inode *);
 struct inode *namei(char *);
 struct inode *root_dir();
-int readi(struct inode *, int, uint64, uint, uint);
-int writei(struct inode *, int, uint64, uint, uint);
+int readi(struct inode *, void*, uint, uint);
+int writei(struct inode *, void*, uint, uint);
 void itrunc(struct inode *);
 int dirls(struct inode *);
+
 #endif //!__FS_H__

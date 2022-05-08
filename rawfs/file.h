@@ -3,6 +3,7 @@
 
 #include "fs.h"
 #include "types.h"
+#include "fcntl.h"
 
 #define PIPESIZE (512)
 
@@ -37,9 +38,9 @@ enum {
 
 void fileclose(struct file *);
 struct file *filealloc();
-int fileopen(char *, uint64);
-uint64 inodewrite(struct file *, uint64, uint64);
-uint64 inoderead(struct file *, uint64, uint64);
+struct file * fileopen(char *, uint64);
+uint64 inodewrite(struct file *, char*, uint64);
+uint64 inoderead(struct file *, char*, uint64);
 struct file *stdio_init(int);
 int show_all_files();
 

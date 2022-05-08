@@ -22,12 +22,12 @@ enum LOG_COLOR {
 #define MIN(a, b) (a < b ? a : b)
 #define MAX(a, b) (a > b ? a : b)
 
-#define panic(fmt, ...)                                                        \
-	do {                                                                   \
-		int tid = 0;                                          \
+#define panic(fmt, ...)                                                \
+	do {                                                               \
+		int tid = 0;                                                   \
 		printf("\x1b[%dm[%s %d] %s:%d: " fmt "\x1b[0m\n", RED,         \
 		       "PANIC", tid, __FILE__, __LINE__, ##__VA_ARGS__);       \
-		exit(1);                                              \
+		exit(1);                                                       \
 	} while (0)
 
 

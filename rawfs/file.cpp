@@ -18,7 +18,8 @@ void fileclose(struct file *f)
 	f->readable = 0;
 	f->writable = 0;
 	f->ref = 0;
-	f->type = FD_NONE;
+	f->type = file::FD_NONE;
+	free(f);
 }
 
 //Show names of all files in the root_dir.
@@ -59,7 +60,7 @@ static struct inode *create(char *path, short type)
 //A process creates or opens a file according to its path, returning the file descriptor of the created or opened file.
 //If omode is O_CREATE, create a new file
 //if omode if the others,open a created file.
-int fileopen(char *path, uint64 omode)
+struct file * fileopen(char *path, uint64 omode)
 {
 	int fd;
 	struct file *f;
@@ -67,27 +68,21 @@ int fileopen(char *path, uint64 omode)
 	if (omode & O_CREATE) {
 		ip = create(path, T_FILE);
 		if (ip == 0) {
-			return -1;
+			return NULL;
 		}
 	} else {
 		if ((ip = namei(path)) == 0) {
-			return -1;
+			return NULL;
 		}
 		ivalid(ip);
 	}
-	if (ip->type != T_FILE)
+	if (ip->type != T_FILE){
 		panic("unsupported file inode type\n");
-	if ((f = filealloc()) == 0 ||
-	    (fd = fdalloc(f)) <
-		    0) { //Assign a system-level table entry to a newly created or opened file
-		//and then create a file descriptor that points to it
-		if (f)
-			fileclose(f);
-		iput(ip);
-		return -1;
 	}
+	f = (struct file *)malloc(sizeof(struct file));
+
 	// only support FD_INODE
-	f->type = FD_INODE;
+	f->type = file::FD_INODE;
 	f->off = 0;
 	f->ip = ip;
 	f->readable = !(omode & O_WRONLY);
@@ -95,25 +90,27 @@ int fileopen(char *path, uint64 omode)
 	if ((omode & O_TRUNC) && ip->type == T_FILE) {
 		itrunc(ip);
 	}
-	return fd;
+	return f;
 }
 
 // Write data to inode.
-uint64 inodewrite(struct file *f, uint64 va, uint64 len)
+uint64 inodewrite(struct file *f, char* src, uint64 len)
 {
 	int r;
 	ivalid(f->ip);
-	if ((r = writei(f->ip, 1, va, f->off, len)) > 0)
+	if ((r = writei(f->ip, src, f->off, len)) > 0){
 		f->off += r;
+	}
 	return r;
 }
 
 //Read data from inode.
-uint64 inoderead(struct file *f, uint64 va, uint64 len)
+uint64 inoderead(struct file *f, char *dst, uint64 len)
 {
 	int r;
 	ivalid(f->ip);
-	if ((r = readi(f->ip, 1, va, f->off, len)) > 0)
+	if ((r = readi(f->ip, dst, f->off, len)) > 0){
 		f->off += r;
+	}
 	return r;
 }

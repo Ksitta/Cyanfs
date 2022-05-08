@@ -1,0 +1,8 @@
+{
+    "makefile.extensionOutputFolder": "./.vscode",
+    "files.associations": {
+        "*.l": "bison",
+        "*.y": "lex",
+        "limits": "c"
+    }
+}

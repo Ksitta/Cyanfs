@@ -17,6 +17,7 @@
 #include "defs.h"
 #include "fs.h"
 #include "types.h"
+#include "utils.h"
 
 struct {
 	struct buf buf[NBUF];
@@ -74,6 +75,7 @@ struct buf *bread(uint dev, uint blockno)
 	b = bget(dev, blockno);
 	if (!b->valid) {
 		// virtio_disk_rw(b, R);   TODO
+		read_raw(b);
 		b->valid = 1;
 	}
 	return b;
@@ -83,6 +85,7 @@ struct buf *bread(uint dev, uint blockno)
 void bwrite(struct buf *b)
 {
 	// virtio_disk_rw(b, W);		TODO
+	write_raw(b);
 }
 
 // Release a buffer.
