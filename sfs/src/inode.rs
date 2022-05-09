@@ -1,12 +1,12 @@
 use crate::block_cache::BlockCache;
-use crate::BLOCK_SIZE;
-use crate::CACHE_SIZE;
+use lru::LruCache;
 use rocksdb::DB;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::ops::Range;
 use std::os::raw::c_int;
-use std::os::unix::prelude::FileExt;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::SystemTime;
 use std::vec;
 
@@ -17,100 +17,93 @@ pub enum FileType {
     Symlink,
 }
 
-pub struct Inode {
-    pub attrs: Attrs,
+pub struct Inode<const BLOCK_SIZE: usize> {
+    pub attrs: Attrs<BLOCK_SIZE>,
+    pub dirty: bool,
     pub db: Arc<DB>,
-    pub dev: Arc<Mutex<BlockCache<BLOCK_SIZE, CACHE_SIZE>>>,
+    pub dev: Arc<Mutex<BlockCache<BLOCK_SIZE>>>,
 }
 
-impl Inode {
-    pub fn lookup(
-        db: Arc<DB>,
-        dev: Arc<Mutex<BlockCache<BLOCK_SIZE, CACHE_SIZE>>>,
-        ino: u64,
-    ) -> Result<Self, c_int> {
-        if let Some(inner) = db.get(ino.to_le_bytes()).map_err(|_| libc::EIO)? {
-            let attrs: Attrs = bincode::deserialize(&inner).map_err(|_| libc::EBADF)?;
-            Ok(Inode { attrs, db, dev })
-        } else {
-            Err(libc::ENOENT)
-        }
-    }
-    pub fn read<V>(&self, f: impl FnOnce(&Attrs) -> V) -> V {
-        f(&self.attrs)
-    }
-    pub fn modify<V>(&mut self, f: impl FnOnce(&mut Attrs) -> V) -> V {
-        let v = f(&mut self.attrs);
-        if self.attrs.nlink != 0 {
+impl<const BLOCK_SIZE: usize> Drop for Inode<BLOCK_SIZE> {
+    fn drop(&mut self) {
+        if self.dirty {
             self.db
                 .put(
                     self.attrs.ino.to_le_bytes(),
-                    &bincode::serialize(&self.attrs).unwrap(),
+                    bincode::serialize(&self.attrs).unwrap(),
                 )
                 .unwrap();
-        } else {
-            self.db.delete(self.attrs.ino.to_le_bytes()).unwrap();
         }
-        v
     }
 }
 
-impl FileExt for Inode {
-    fn read_at(&self, buf: &mut [u8], offset: u64) -> std::io::Result<usize> {
+impl<const BLOCK_SIZE: usize> Attrs<BLOCK_SIZE> {
+    pub fn blocks(&self) -> usize {
+        self.extents.iter().map(Range::len).sum()
+    }
+    pub fn read_at(
+        &self,
+        dev: Arc<Mutex<BlockCache<BLOCK_SIZE>>>,
+        buf: &mut [u8],
+        offset: u64,
+    ) -> std::io::Result<usize> {
         let mut data = vec![];
         let begin = offset as usize / BLOCK_SIZE;
         let end = (offset as usize + buf.len() + (BLOCK_SIZE - 1)) / BLOCK_SIZE;
-        for block in self.attrs.blocks.iter().skip(begin).take(end - begin) {
+        for block in self
+            .extents
+            .iter()
+            .flat_map(|r| r.clone())
+            .skip(begin)
+            .take(end - begin)
+        {
             let mut buf = [0u8; BLOCK_SIZE];
-            self.dev
-                .lock()
-                .unwrap()
-                .read_block(*block, &mut buf)
-                .unwrap();
+            dev.lock().unwrap().read_block(block, &mut buf).unwrap();
             data.extend_from_slice(&buf);
         }
-        let size = std::cmp::min((self.attrs.size - offset) as usize, buf.len()) as usize;
+        let size = std::cmp::min((self.size - offset) as usize, buf.len()) as usize;
         let off = offset as usize % BLOCK_SIZE;
         buf[..size].copy_from_slice(&data[off..off + size]);
         Ok(size)
     }
-    fn write_at(&self, buf: &[u8], offset: u64) -> std::io::Result<usize> {
+    pub fn write_at(
+        &self,
+        dev: Arc<Mutex<BlockCache<BLOCK_SIZE>>>,
+        buf: &[u8],
+        offset: u64,
+    ) -> std::io::Result<usize> {
         let mut data = vec![];
         let begin = offset as usize / BLOCK_SIZE;
         let end = (offset as usize + buf.len() + (BLOCK_SIZE - 1)) / BLOCK_SIZE;
+        let off = offset as usize % BLOCK_SIZE;
+        let eoff = (offset as usize + buf.len()) % BLOCK_SIZE;
         for (i, block) in self
-            .attrs
-            .blocks
+            .extents
             .iter()
+            .flat_map(|r| r.clone())
             .enumerate()
             .skip(begin)
             .take(end - begin)
         {
             let mut buf = [0u8; BLOCK_SIZE];
-            if i == begin || i == end {
-                self.dev
-                    .lock()
-                    .unwrap()
-                    .read_block(*block, &mut buf)
-                    .unwrap();
+            if (i == begin && off != 0) || (i == end && eoff != 0) {
+                dev.lock().unwrap().read_block(block, &mut buf).unwrap();
             }
             data.extend_from_slice(&buf);
         }
-        let off = offset as usize % BLOCK_SIZE;
         data[off..off + buf.len()].copy_from_slice(buf);
         for (i, block) in self
-            .attrs
-            .blocks
+            .extents
             .iter()
+            .flat_map(|r| r.clone())
             .skip(begin)
             .take(end - begin)
             .enumerate()
         {
-            self.dev
-                .lock()
+            dev.lock()
                 .unwrap()
                 .write_block(
-                    *block,
+                    block,
                     data[i * BLOCK_SIZE..(i + 1) * BLOCK_SIZE]
                         .try_into()
                         .unwrap(),
@@ -119,13 +112,19 @@ impl FileExt for Inode {
         }
         Ok(buf.len())
     }
+    pub fn fsync(&self, dev: Arc<Mutex<BlockCache<BLOCK_SIZE>>>) {
+        self.extents
+            .iter()
+            .flat_map(|r| r.clone())
+            .for_each(|block| dev.lock().unwrap().flush_block(block));
+    }
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
-pub struct Attrs {
+pub struct Attrs<const BLOCK_SIZE: usize> {
     pub ino: u64,
     pub size: u64,
-    pub blocks: Vec<usize>,
+    pub extents: Vec<Range<usize>>,
     pub atime: SystemTime,
     pub mtime: SystemTime,
     pub ctime: SystemTime,
@@ -157,12 +156,24 @@ impl From<FileType> for fuser::FileType {
     }
 }
 
-impl From<Attrs> for fuser::FileAttr {
-    fn from(attrs: Attrs) -> Self {
+impl<const BLOCK_SIZE: usize> From<&mut Attrs<BLOCK_SIZE>> for fuser::FileAttr {
+    fn from(attrs: &mut Attrs<BLOCK_SIZE>) -> Self {
+        (&*attrs).into()
+    }
+}
+
+impl<const BLOCK_SIZE: usize> From<Attrs<BLOCK_SIZE>> for fuser::FileAttr {
+    fn from(attrs: Attrs<BLOCK_SIZE>) -> Self {
+        attrs.into()
+    }
+}
+
+impl<const BLOCK_SIZE: usize> From<&Attrs<BLOCK_SIZE>> for fuser::FileAttr {
+    fn from(attrs: &Attrs<BLOCK_SIZE>) -> Self {
         fuser::FileAttr {
             ino: attrs.ino,
             size: attrs.size,
-            blocks: attrs.blocks.len() as u64,
+            blocks: attrs.blocks() as u64,
             crtime: attrs.crtime,
             atime: attrs.atime,
             mtime: attrs.mtime,
@@ -178,8 +189,112 @@ impl From<Attrs> for fuser::FileAttr {
         }
     }
 }
-impl From<Inode> for fuser::FileAttr {
-    fn from(inode: Inode) -> Self {
-        inode.attrs.into()
+
+pub struct InodeCache<const BLOCK_SIZE: usize> {
+    db: Arc<DB>,
+    dev: Arc<Mutex<BlockCache<BLOCK_SIZE>>>,
+    cache: LruCache<u64, Inode<BLOCK_SIZE>>,
+}
+
+impl<const BLOCK_SIZE: usize> InodeCache<BLOCK_SIZE> {
+    pub fn new(db: Arc<DB>, dev: Arc<Mutex<BlockCache<BLOCK_SIZE>>>, capacity: usize) -> Self {
+        Self {
+            db,
+            dev,
+            cache: LruCache::new(capacity),
+        }
+    }
+
+    pub fn scan(&mut self, mut f: impl FnMut(&Attrs<BLOCK_SIZE>)) -> Result<(), c_int> {
+        let it = self.db.iterator(rocksdb::IteratorMode::Start);
+        for (_, data) in it {
+            if let Ok(attrs) = bincode::deserialize::<Attrs<BLOCK_SIZE>>(&data) {
+                f(&attrs);
+            } else {
+                return Err(libc::EIO);
+            }
+        }
+        Ok(())
+    }
+
+    pub fn insert(&mut self, attrs: Attrs<BLOCK_SIZE>) {
+        self.cache.put(
+            attrs.ino,
+            Inode {
+                attrs,
+                db: self.db.clone(),
+                dev: self.dev.clone(),
+                dirty: true,
+            },
+        );
+    }
+
+    pub fn read<V>(
+        &mut self,
+        ino: u64,
+        f: impl FnOnce(&Attrs<BLOCK_SIZE>) -> V,
+    ) -> Result<V, c_int> {
+        if let Some(inode) = self.cache.get(&ino) {
+            Ok(f(&inode.attrs))
+        } else if let Ok(data) = self.db.get_pinned(ino.to_le_bytes()) {
+            if let Some(data) = data {
+                if let Ok(attrs) = bincode::deserialize::<Attrs<BLOCK_SIZE>>(&data) {
+                    let v = f(&attrs);
+                    self.cache.put(
+                        ino,
+                        Inode {
+                            attrs,
+                            db: self.db.clone(),
+                            dev: self.dev.clone(),
+                            dirty: false,
+                        },
+                    );
+                    Ok(v)
+                } else {
+                    Err(libc::EIO)
+                }
+            } else {
+                Err(libc::ENOENT)
+            }
+        } else {
+            Err(libc::EIO)
+        }
+    }
+
+    pub fn modify<V>(
+        &mut self,
+        ino: u64,
+        f: impl FnOnce(&mut Attrs<BLOCK_SIZE>) -> V,
+    ) -> Result<V, c_int> {
+        if let Some(inode) = self.cache.get_mut(&ino) {
+            inode.dirty = true;
+            Ok(f(&mut inode.attrs))
+        } else if let Ok(data) = self.db.get_pinned(ino.to_le_bytes()) {
+            if let Some(data) = data {
+                if let Ok(mut attrs) = bincode::deserialize::<Attrs<BLOCK_SIZE>>(&data) {
+                    let v = f(&mut attrs);
+                    self.cache.put(
+                        ino,
+                        Inode {
+                            attrs,
+                            db: self.db.clone(),
+                            dev: self.dev.clone(),
+                            dirty: true,
+                        },
+                    );
+                    Ok(v)
+                } else {
+                    Err(libc::EIO)
+                }
+            } else {
+                Err(libc::ENOENT)
+            }
+        } else {
+            Err(libc::EIO)
+        }
+    }
+
+    pub fn flush(&mut self) {
+        self.cache.clear()
     }
 }
