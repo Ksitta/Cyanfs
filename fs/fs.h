@@ -19,16 +19,26 @@ struct superblock{
 };
 
 struct entry{
-    char name[64 - 2 * sizeof(u64) - sizeof(int)];
+    char name[64 - 3 * sizeof(u64) - sizeof(int)];
     int used;
     i64 block_start;
     u64 fsize;
+    i64 last_block;
+};
+
+struct MemoryEntry {
+    int inode_number;
+    int pos;
+    int offset;
+    int cur_block;
 };
 
 struct dinode{
     char pad[512 - sizeof(i64)];
     i64 next;
 };
+
+const int ENTRY_PER_BLOCK = BSIZE / sizeof(entry);
 
 struct inode{
     bool dirty;
@@ -38,11 +48,21 @@ struct inode{
             char buf[512 - sizeof(i64)];
             i64 next;
         } data;
-        char entry[512];
+        entry entries[ENTRY_PER_BLOCK];
     };
+    int refcount = 0;
 };
 
+const int INODE_BUFFER_SIZE =  (512 - sizeof(i64));
 
-const int ENTRY_PER_BLOCK = BSIZE / sizeof(entry);
+void create_disk();
+void init();
+MemoryEntry *create(char*);
+int write(MemoryEntry*, char*, int);
+int read(MemoryEntry*, char*, int);
+MemoryEntry *open(char*);
+int close(MemoryEntry*);
+void destroy();
+
 
 #endif
