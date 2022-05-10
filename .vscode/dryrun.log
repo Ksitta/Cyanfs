@@ -1,6 +1,0 @@
-make --dry-run --keep-going --print-directory
-make: Entering directory '/home/ksitta/hw/filesystem'
-make: Leaving directory '/home/ksitta/hw/filesystem'
- 
-make: *** No targets specified and no makefile found.  Stop.
-
