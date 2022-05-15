@@ -3,8 +3,9 @@
 #include <unistd.h>
 #include <assert.h>
 #include <string.h>
-#include <queue>
 #include <utility>
+#include <vector>
+#include <string>
 
 #define min(a,b) ((a) < (b) ? (a) : (b))
 
@@ -58,6 +59,11 @@ int alloc_cache(){
     return pos;
 }
 
+void write_entry(int pos){
+    lseek(fd, ENTRY_POS + (pos / ENTRY_PER_BLOCK) * BSIZE, SEEK_SET);
+    write(fd, &sb.entries[pos - (pos % ENTRY_PER_BLOCK)], BSIZE);
+}
+
 inode* read_disk(int block_no){
     for(int i=0;i<CACHE_SIZE;i++)
         if(inodes[i].block_no == block_no)
@@ -70,6 +76,17 @@ inode* read_disk(int block_no){
     inodes[pos].dirty = false;
     inodes[pos].refcount = 0;
     return &inodes[pos];
+}
+
+inode* read_inode(int inode_no){
+    inode* ret = new inode;
+    fsync(fd);
+    lseek(fd, inode_no * BSIZE, SEEK_SET);
+    read(fd, &ret->data, BSIZE);
+    ret->block_no = inode_no;
+    ret->dirty = false;
+    ret->refcount = 1;
+    return ret;
 }
 
 void mark_dirty(inode *node){
@@ -91,16 +108,15 @@ i64 find_block(){
 }
 
 int append(MemoryEntry* p_mentry){
-    inode *p_inode = read_disk(p_mentry->inode_number);
-    entry *p_entry = &(p_inode->entries[p_mentry->pos]);
+    entry *p_entry = &(sb.entries[p_mentry->pos]);
     i64 next_pos = p_entry->block_start;
     i64 pos = next_pos;
     if(next_pos == -1){
         i64 pos = find_block();
         p_entry->block_start = pos;
         p_entry->last_block = pos;
-        mark_dirty(p_inode);
         p_mentry->cur_block = pos;
+        write_entry(p_mentry->pos);
         return pos;
     }
     inode * node;
@@ -112,45 +128,29 @@ int append(MemoryEntry* p_mentry){
         p_mentry->cur_block = p_entry->last_block;
     }
     mark_dirty(node);
+    write_entry(p_mentry->pos);
     return node->data.next;
 }
 
-int find_entry_from_node(inode* node){
-    entry* p_entry = node->entries;
-    for(int i = 0; i < ENTRY_PER_BLOCK; i++){
-        if(!p_entry[i].used){
+int find_entry(){
+    for(int i = 0; i < sb.entry_size; i++){
+        if(!sb.entries[i].used){
             return i;
         }
     }
     return -1;
 }
 
-std::pair<inode*, int> find_entry(){
-    for(int i = 0; i < sb.entry_size / ENTRY_PER_BLOCK; i++){
-        inode * node = read_disk(sb.entry_start + i);
-        int pos = find_entry_from_node(node);
-        if(pos != -1){
-            return std::make_pair(node, pos); 
-        }
-    }
-    return std::make_pair(nullptr, -1);
-}
-
 MemoryEntry* look_up(char *name){
-    for(int i=0; i<sb.entry_size / ENTRY_PER_BLOCK; i++) {
-        inode *node = read_disk(sb.entry_start + i);
-        entry *p_entry = node->entries;
-        for(int j=0;j<ENTRY_PER_BLOCK;j++) {
-            entry *cur = &p_entry[i];
-            if(cur->used && strcmp(cur->name, name) == 0) {
-                MemoryEntry* ret = new MemoryEntry();
-                ret->inode_number = node->block_no;
-                ret->pos = j;
-                ret->offset = 0;
-                ret->cur_block = cur->block_start;
-                ret->last_block = cur->last_block;
-                return ret;
-            }
+    for(int i=0; i<sb.entry_size; i++) {
+        entry *cur = &sb.entries[i];
+        if(cur->used && strcmp(cur->name, name) == 0) {
+            MemoryEntry* ret = new MemoryEntry();
+            ret->pos = i;
+            ret->offset = 0;
+            ret->cur_block = cur->block_start;
+            ret->last_block = cur->last_block;
+            return ret;
         }
     }
     return NULL;
@@ -162,36 +162,29 @@ MemoryEntry* create(char *name){
         return res;
     }
     auto pos = find_entry();
-    if(pos.second == -1) {
+    if(pos == -1) {
         return NULL;
     }
-
-    mark_dirty(pos.first);
-    entry* p_entry = (entry*)&(pos.first->data);
-    entry* cur = p_entry + pos.second;
+    entry* cur = &(sb.entries[pos]);
     strcpy(cur->name, name);
     cur->block_start = -1;
     cur->used = 1;
     cur->fsize = 0;
     cur->last_block = -1;
-
+    write_entry(pos);
     res = new MemoryEntry();
-    res->inode_number = pos.first->block_no;
-    res->pos = pos.second;
+    res->pos = pos;
     res->offset = 0;
     res->cur_block = -1;
     return res;
 }
 
 int write(MemoryEntry *ment, char *buffer, int len) {
-    inode *inod = read_disk(ment->inode_number);
-    inod->refcount += 1;
-    entry *ent = &(inod->entries[ment->pos]);
+    entry *ent = &(sb.entries[ment->pos]);
     int p = 0;
     while(p < len) {
         int current_from = ent->fsize % INODE_BUFFER_SIZE;
-        if(current_from == 0)
-        {
+        if(current_from == 0) {
             append(ment);
         }
         int write_size = min(INODE_BUFFER_SIZE - current_from, len - p);
@@ -201,14 +194,12 @@ int write(MemoryEntry *ment, char *buffer, int len) {
         ent->fsize += write_size;
         mark_dirty(block);
     }
-    mark_dirty(inod);
-    inod->refcount -= 1;
+    
     return len;
 }
 
 int read(MemoryEntry *ment, char *buffer, int len) {
-    inode *inod = read_disk(ment->inode_number);
-    entry *ent = &(inod->entries[ment->pos]);
+    entry *ent = &(sb.entries[ment->pos]);
     int fsize = ent->fsize;
     int p = 0;
     int current = ment->offset;
@@ -228,10 +219,9 @@ int read(MemoryEntry *ment, char *buffer, int len) {
 }
 
 int seek(MemoryEntry *ment, int offset) {
-    inode *inod = read_disk(ment->inode_number);
-    entry *ent = &(inod->entries[ment->pos]);
+    entry *ent = &(sb.entries[ment->pos]);
     if(offset > ent->fsize) {
-        return -1;
+        offset = ent->fsize;
     }
     if(offset < ment->offset) {
         ment->offset = 0;
@@ -266,12 +256,13 @@ void destroy() {
     for(int i=0;i<CACHE_SIZE;i++)
         if(inodes[i].dirty)
             write_disk(&inodes[i]);
+    lseek(fd, 0, SEEK_SET);
+    write(fd, &sb, sizeof(superblock));
     close(fd);
 }
 
 u64 fsize(MemoryEntry *ent){
-    inode * node = read_disk(ent->inode_number);
-    return node->entries[ent->pos].fsize;
+    return sb.entries[ent->pos].fsize;
 }
 
 void clear_cache(){
@@ -280,4 +271,14 @@ void clear_cache(){
             write_disk(&inodes[i]);
         }
     }
+}
+
+std::vector<std::string> lsdir(){
+    std::vector<std::string> ret;
+    for(int i = 0; i < sb.entry_size; i++){
+        if(sb.entries[i].used != 0){
+            ret.push_back(std::string(sb.entries[i].name));
+        }
+    }
+    return ret;
 }

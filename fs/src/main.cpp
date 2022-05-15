@@ -8,7 +8,7 @@ int main()
     init();
     MemoryEntry *entry = create("hello");
     // write(entry, "12345", 5);
-    for(int i = 0; i < 200; i++){
+    for(int i = 0; i < 2000; i++){
         write(entry, "12345", 5);
     }
     char s[1000] = {0};
@@ -24,6 +24,12 @@ int main()
     read(entry, s, 10);
     printf("%s\n", s);
     close(entry);
+    entry = create("world");
+    close(entry);
+    auto vec = lsdir();
+    for(auto each : vec){
+        printf("%s\n", each.c_str());
+    }
     destroy();
     return 0;
 }

@@ -1,6 +1,9 @@
 #ifndef __FS_H__
 #define __FS_H__
 
+#include <vector>
+#include <string>
+
 typedef unsigned long long int u64;
 typedef long long int i64;
 typedef unsigned char u8;
@@ -10,15 +13,6 @@ const u64 BSIZE = 512;
 const int BITMAP_SIZE = DISK_SIZE / BSIZE / 8;
 const int ENTRY_NUMS = 512;
 
-struct superblock{
-    u64 block_nums;
-    i64 entry_start;
-    i64 data_start;
-    u64 entry_size;
-    u8 bitmap[BITMAP_SIZE];
-    char pad[512 - (4 * sizeof(u64) + BITMAP_SIZE) % 512];
-};
-
 struct entry{
     char name[64 - 3 * sizeof(u64) - sizeof(int)];
     int used;
@@ -27,10 +21,21 @@ struct entry{
     i64 last_block;
 };
 
+struct superblock{
+    u64 block_nums;
+    i64 entry_start;
+    i64 data_start;
+    u64 entry_size;
+    u8 bitmap[BITMAP_SIZE];
+    char pad[512 - ((4 * sizeof(u64) + sizeof(bitmap)) % 512)];
+    entry entries[ENTRY_NUMS];
+};
+
+const int ENTRY_POS = sizeof(superblock) - sizeof(superblock::entries);
+
 // When adding a new filed into MemoryEntry, remember to initial it in open/create
 struct MemoryEntry {
-    int inode_number;
-    int pos;       // entry num in inode
+    int pos;       // entry num
     int offset;    // read pointer
     i64 cur_block;
     i64 last_block;
@@ -46,13 +51,10 @@ const int ENTRY_PER_BLOCK = BSIZE / sizeof(entry);
 struct inode{
     bool dirty;
     i64 block_no;
-    union{
-        struct{
-            char buf[512 - sizeof(i64)];
-            i64 next;
-        } data;
-        entry entries[ENTRY_PER_BLOCK];
-    };
+    struct{
+        char buf[512 - sizeof(i64)];
+        i64 next;
+    } data;
     int refcount = 0;
 };
 
@@ -67,6 +69,6 @@ MemoryEntry *open(char*);
 int close(MemoryEntry*);
 void destroy();
 int seek(MemoryEntry *, int);
-
+std::vector<std::string> lsdir();
 
 #endif
