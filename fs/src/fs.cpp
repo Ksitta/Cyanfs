@@ -198,6 +198,13 @@ int write(MemoryEntry *ment, const char *buffer, int len) {
     return len;
 }
 
+bool eof(MemoryEntry * ment){
+    if(ment->offset == sb.entries[ment->pos].fsize){
+        return true;
+    }
+    return false;
+}
+
 int read(MemoryEntry *ment, char *buffer, int len) {
     entry *ent = &(sb.entries[ment->pos]);
     int fsize = ent->fsize;
@@ -207,7 +214,7 @@ int read(MemoryEntry *ment, char *buffer, int len) {
         int current_from = current % INODE_BUFFER_SIZE;
         inode *cur_inode = read_disk(ment->cur_block);
         int read_size = min(min(INODE_BUFFER_SIZE - current_from, len - p), fsize - current);
-        memcpy(buffer + p, &cur_inode->data + current_from, read_size);
+        memcpy(buffer + p, cur_inode->data.buf + current_from, read_size);
         p += read_size;
         current += read_size;
         ment->offset += read_size;
@@ -218,8 +225,11 @@ int read(MemoryEntry *ment, char *buffer, int len) {
     return p;
 }
 
-int seek(MemoryEntry *ment, int offset) {
+int seek(MemoryEntry *ment, int offset, int from) {
     entry *ent = &(sb.entries[ment->pos]);
+    if(from == SEEK_C){
+        offset += ment->offset;
+    }
     if(offset > ent->fsize) {
         offset = ent->fsize;
     }

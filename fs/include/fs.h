@@ -60,6 +60,11 @@ struct inode{
 
 const int INODE_BUFFER_SIZE =  (512 - sizeof(i64));
 
+enum{
+    SEEK_S,
+    SEEK_C
+};
+
 void create_disk();
 void init();
 MemoryEntry *create(const char*);
@@ -68,9 +73,10 @@ int read(MemoryEntry*, char*, int);
 MemoryEntry *open(const char*);
 int close(MemoryEntry*);
 void destroy();
-int seek(MemoryEntry *, int);
+int seek(MemoryEntry *, int, int);
 std::vector<std::string> lsdir();
 bool remove_file(const char*);
 bool rename_file(const char *oldname, const char *newname);
+bool eof(MemoryEntry *);
 
 #endif

@@ -1,4 +1,5 @@
 #include "fs.h"
+#include "kv.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -6,37 +7,14 @@ int main()
 {
     create_disk();
     init();
-    MemoryEntry *entry = create("hello");
-    // write(entry, "12345", 5);
-    for(int i = 0; i < 2000; i++){
-        write(entry, "12345", 5);
-    }
-    char s[1000] = {0};
-    read(entry, s, 5);
-    printf("%s\n", s);
-    close(entry);
-    entry = open("hello");
-    memset(s, 0, 6);
-    read(entry, s, 6);
-    printf("%s\n", s);
-    seek(entry, 0);
-    memset(s, 0, 6);
-    read(entry, s, 10);
-    printf("%s\n", s);
-    close(entry);
-    entry = create("world");
-    close(entry);
-    auto vec = lsdir();
-    for(auto each : vec){
-        printf("%s\n", each.c_str());
-    }
-    bool ret = remove_file("hello");
-    ret &= rename_file("world", "newworld");
+    create("123");
+    KVStore *kv = new KVStore("123");
+    kv->put("123", "456");
+    std::string a;
+    bool ret = kv->get("123", a);
     printf("result %d\n", ret);
-    auto vec2 = lsdir();
-    for(auto each : vec2){
-        printf("%s\n", each.c_str());
-    }
+    printf("%s\n", a.c_str());
+    delete kv;
     destroy();
     return 0;
 }
