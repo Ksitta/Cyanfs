@@ -199,7 +199,7 @@ public:
     put_skiplist(key, cover, val_size, path);
   }
 
-  std::vector<std::string> getkeypairs() const {
+  std::vector<std::string> list() const {
     std::vector<std::string> ret;
     Node *p = head;
     while (p->down) {
