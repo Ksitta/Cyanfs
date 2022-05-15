@@ -3,6 +3,7 @@
 
 typedef unsigned long long int u64;
 typedef long long int i64;
+typedef unsigned char u8;
 
 const u64 DISK_SIZE = 1 << 30;
 const u64 BSIZE = 512;
@@ -14,7 +15,7 @@ struct superblock{
     i64 entry_start;
     i64 data_start;
     u64 entry_size;
-    char bigmap[BITMAP_SIZE];
+    u8 bitmap[BITMAP_SIZE];
     char pad[512 - (4 * sizeof(u64) + BITMAP_SIZE) % 512];
 };
 
@@ -26,11 +27,13 @@ struct entry{
     i64 last_block;
 };
 
+// When adding a new filed into MemoryEntry, remember to initial it in open/create
 struct MemoryEntry {
     int inode_number;
-    int pos;
-    int offset;
-    int cur_block;
+    int pos;       // entry num in inode
+    int offset;    // read pointer
+    i64 cur_block;
+    i64 last_block;
 };
 
 struct dinode{
@@ -63,6 +66,7 @@ int read(MemoryEntry*, char*, int);
 MemoryEntry *open(char*);
 int close(MemoryEntry*);
 void destroy();
+int seek(MemoryEntry *, int);
 
 
 #endif

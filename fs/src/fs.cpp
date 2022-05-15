@@ -24,12 +24,12 @@ void create_disk(){
     sb.data_start = (sizeof(superblock) + sizeof(entry) * ENTRY_NUMS) / BSIZE;
     sb.entry_size = ENTRY_NUMS;
     sb.entry_start = sizeof(superblock) / BSIZE;
-    memset(sb.bigmap, 0, sizeof(sb.bigmap));
+    memset(sb.bitmap, 0, sizeof(sb.bitmap));
     write(fd, &sb, sizeof(sb));
     char *tmp = new char[1<<30];
     memset(tmp, 0, sizeof(char) * (1<<30));
     write(fd, tmp, sizeof(char) * (1<<30));
-    delete tmp;
+    delete[] tmp;
     close(fd);
 }
 
@@ -40,6 +40,9 @@ void init(){
 }
 
 void write_disk(inode *node){
+    if(node->dirty == false){
+        return ;
+    }
     node->dirty = false;
     lseek(fd, node->block_no * BSIZE, SEEK_SET);
     write(fd, (void *)&(node->data), BSIZE);
@@ -75,9 +78,10 @@ void mark_dirty(inode *node){
 
 i64 find_block(){
     for(int i = 0; i < BITMAP_SIZE; i++){
-        if(sb.bigmap[i] != 0xff){
+        if(sb.bitmap[i] != 0xff){
             for(int j = 0; j < 8; j++){
-                if((sb.bigmap[i] & (1 << j)) == 0){
+                if((sb.bitmap[i] & (1 << j)) == 0){
+                    sb.bitmap[i] |= (1 << j);
                     return i * 8 + j + sb.data_start;
                 }
             }
@@ -100,11 +104,7 @@ int append(MemoryEntry* p_mentry){
         return pos;
     }
     inode * node;
-    do{
-        node = read_disk(pos);
-        pos = next_pos;
-        next_pos = node->data.next;
-    }while(next_pos);
+    node = read_disk(p_entry->last_block);
     node->data.next = find_block();
     p_entry->last_block = node->data.next;
     if(p_mentry->cur_block == -1)
@@ -140,14 +140,16 @@ MemoryEntry* look_up(char *name){
     for(int i=0; i<sb.entry_size / ENTRY_PER_BLOCK; i++) {
         inode *node = read_disk(sb.entry_start + i);
         entry *p_entry = node->entries;
-        for(int j=0;j<ENTRY_PER_BLOCK;j++)
-        {
+        for(int j=0;j<ENTRY_PER_BLOCK;j++) {
             entry *cur = &p_entry[i];
             if(cur->used && strcmp(cur->name, name) == 0) {
                 MemoryEntry* ret = new MemoryEntry();
                 ret->inode_number = node->block_no;
                 ret->pos = j;
                 ret->offset = 0;
+                ret->cur_block = cur->block_start;
+                ret->last_block = cur->last_block;
+                return ret;
             }
         }
     }
@@ -169,6 +171,9 @@ MemoryEntry* create(char *name){
     entry* cur = p_entry + pos.second;
     strcpy(cur->name, name);
     cur->block_start = -1;
+    cur->used = 1;
+    cur->fsize = 0;
+    cur->last_block = -1;
 
     res = new MemoryEntry();
     res->inode_number = pos.first->block_no;
@@ -262,4 +267,17 @@ void destroy() {
         if(inodes[i].dirty)
             write_disk(&inodes[i]);
     close(fd);
+}
+
+u64 fsize(MemoryEntry *ent){
+    inode * node = read_disk(ent->inode_number);
+    return node->entries[ent->pos].fsize;
+}
+
+void clear_cache(){
+    for(int i=0;i<CACHE_SIZE;i++){
+        if(inodes[i].dirty){
+            write_disk(&inodes[i]);
+        }
+    }
 }

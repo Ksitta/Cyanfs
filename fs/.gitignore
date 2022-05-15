@@ -3,3 +3,6 @@
 !makefile
 !*.h
 !*.cpp
+!CMakeLists.txt
+!include
+!src
