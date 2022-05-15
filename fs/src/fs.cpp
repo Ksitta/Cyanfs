@@ -141,7 +141,7 @@ int find_entry(){
     return -1;
 }
 
-MemoryEntry* look_up(char *name){
+MemoryEntry* look_up(const char *name){
     for(int i=0; i<sb.entry_size; i++) {
         entry *cur = &sb.entries[i];
         if(cur->used && strcmp(cur->name, name) == 0) {
@@ -156,7 +156,7 @@ MemoryEntry* look_up(char *name){
     return NULL;
 }
 
-MemoryEntry* create(char *name){
+MemoryEntry* create(const char *name){
     MemoryEntry *res = look_up(name);
     if(res != NULL) {
         return res;
@@ -179,7 +179,7 @@ MemoryEntry* create(char *name){
     return res;
 }
 
-int write(MemoryEntry *ment, char *buffer, int len) {
+int write(MemoryEntry *ment, const char *buffer, int len) {
     entry *ent = &(sb.entries[ment->pos]);
     int p = 0;
     while(p < len) {
@@ -239,7 +239,7 @@ int seek(MemoryEntry *ment, int offset) {
     return ment->offset;
 }
 
-MemoryEntry *open(char *name) {
+MemoryEntry *open(const char *name) {
     MemoryEntry* ret = look_up(name);
     return ret;
 }
@@ -306,7 +306,7 @@ bool remove_file(char *filename){
 }
 
 
-bool rename_file(char *oldname, const char *newname){
+bool rename_file(const char *oldname, const char *newname){
     MemoryEntry* mement = look_up(oldname);
     if(mement == nullptr){
         return false;
