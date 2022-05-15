@@ -71,5 +71,6 @@ void destroy();
 int seek(MemoryEntry *, int);
 std::vector<std::string> lsdir();
 bool remove_file(char*);
+bool rename(char *oldname, const char *newname);
 
 #endif

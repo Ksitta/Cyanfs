@@ -304,3 +304,15 @@ bool remove_file(char *filename){
     delete mement;
     return true;
 }
+
+
+bool rename(char *oldname, const char *newname){
+    MemoryEntry* mement = look_up(oldname);
+    if(mement == nullptr){
+        return false;
+    }
+    strcpy(sb.entries[mement->pos].name, newname);
+    write_entry(mement->pos);
+    delete mement;
+    return true;
+}
