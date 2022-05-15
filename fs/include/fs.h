@@ -1,8 +1,8 @@
 #ifndef __FS_H__
 #define __FS_H__
 
-#include <vector>
 #include <string>
+#include <vector>
 
 typedef unsigned long long int u64;
 typedef long long int i64;
@@ -13,7 +13,8 @@ const u64 BSIZE = 512;
 const int BITMAP_SIZE = DISK_SIZE / BSIZE / 8;
 const int ENTRY_NUMS = 512;
 
-struct entry{
+struct entry
+{
     char name[64 - 3 * sizeof(u64) - sizeof(int)];
     int used;
     i64 block_start;
@@ -21,7 +22,8 @@ struct entry{
     i64 last_block;
 };
 
-struct superblock{
+struct superblock
+{
     u64 block_nums;
     i64 entry_start;
     i64 data_start;
@@ -33,12 +35,12 @@ struct superblock{
 
 const int ENTRY_POS = sizeof(superblock) - sizeof(superblock::entries);
 
-// When adding a new filed into MemoryEntry, remember to initial it in open/create
-struct MemoryEntry {
-    int pos;       // entry num
-    int offset;    // read pointer
+// When adding a new filed into MemoryEntry, remember to initial it in
+// open/create
+struct MemoryEntry{
+    int pos;     // entry num
+    int offset;  // read pointer
     i64 cur_block;
-    i64 last_block;
 };
 
 struct dinode{
@@ -48,34 +50,36 @@ struct dinode{
 
 const int ENTRY_PER_BLOCK = BSIZE / sizeof(entry);
 
-struct inode{
+struct inode
+{
     bool dirty;
     i64 block_no;
-    struct{
+    struct
+    {
         char buf[512 - sizeof(i64)];
         i64 next;
     } data;
-    int refcount = 0;
 };
 
-const int INODE_BUFFER_SIZE =  (512 - sizeof(i64));
+const int INODE_BUFFER_SIZE = (512 - sizeof(i64));
 
-enum{
+enum
+{
     SEEK_S,
     SEEK_C
 };
 
-void create_disk();
-void init();
-MemoryEntry *create(const char*);
-int write(MemoryEntry*, const char*, int);
-int read(MemoryEntry*, char*, int);
-MemoryEntry *open(const char*);
-int close(MemoryEntry*);
+void create_disk(const std::string &path);
+void init(const std::string &path);
+MemoryEntry *create(const char *);
+int write(MemoryEntry *, const char *, int);
+int read(MemoryEntry *, char *, int);
+MemoryEntry *open(const char *);
+int close(MemoryEntry *);
 void destroy();
 int seek(MemoryEntry *, int, int);
 std::vector<std::string> lsdir();
-bool remove_file(const char*);
+bool remove_file(const char *);
 bool rename_file(const char *oldname, const char *newname);
 bool eof(MemoryEntry *);
 
