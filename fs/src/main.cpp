@@ -30,6 +30,12 @@ int main()
     for(auto each : vec){
         printf("%s\n", each.c_str());
     }
+    bool ret = remove_file("hello");
+    printf("result %d\n", ret);
+    auto vec2 = lsdir();
+    for(auto each : vec2){
+        printf("%s\n", each.c_str());
+    }
     destroy();
     return 0;
 }

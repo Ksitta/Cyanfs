@@ -282,3 +282,25 @@ std::vector<std::string> lsdir(){
     }
     return ret;
 }
+
+bool remove_file(char *filename){
+    MemoryEntry* mement = look_up(filename);
+    if(mement == nullptr){
+        return false;
+    }
+    sb.entries[mement->pos].used = 0;
+    write_entry(mement->pos);
+    i64 block = mement->cur_block;
+    while(block != mement->last_block){
+        i64 pos = block - sb.data_start;
+        sb.bitmap[pos / 8] &= ~(1 << (pos % 8));
+        inode* t = read_disk(block);
+        block = t->data.next;
+    }
+    if(block != -1){
+        i64 pos = block - sb.data_start;
+        sb.bitmap[pos / 8] &= ~(1 << (pos % 8));
+    }
+    delete mement;
+    return true;
+}

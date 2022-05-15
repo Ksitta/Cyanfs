@@ -31,10 +31,11 @@ static void readsb(int dev, struct superblock *sb)
 void fsinit()
 {
 	int dev = ROOTDEV;
+	binit();
 	readsb(dev, &sb);
-	if (sb.magic != FSMAGIC) {
-		panic("invalid file system");
-	}
+	// if (sb.magic != FSMAGIC) {
+	// 	panic("invalid file system");
+	// }
 }
 
 // Zero a block.
