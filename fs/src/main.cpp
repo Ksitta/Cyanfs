@@ -31,6 +31,7 @@ int main()
         printf("%s\n", each.c_str());
     }
     bool ret = remove_file("hello");
+    ret &= rename_file("world", "newworld");
     printf("result %d\n", ret);
     auto vec2 = lsdir();
     for(auto each : vec2){

@@ -306,7 +306,7 @@ bool remove_file(char *filename){
 }
 
 
-bool rename(char *oldname, const char *newname){
+bool rename_file(char *oldname, const char *newname){
     MemoryEntry* mement = look_up(oldname);
     if(mement == nullptr){
         return false;
