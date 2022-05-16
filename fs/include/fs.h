@@ -9,7 +9,7 @@ typedef long long int i64;
 typedef unsigned char u8;
 
 const u64 DISK_SIZE = 1 << 30;
-const u64 BSIZE = 512;
+const u64 BSIZE = 4096;
 const int BITMAP_SIZE = DISK_SIZE / BSIZE / 8;
 const int ENTRY_NUMS = 512;
 
@@ -32,7 +32,7 @@ struct superblock
     i64 data_start;
     u64 entry_size;
     u8 bitmap[BITMAP_SIZE];
-    char pad[512 - ((5 * sizeof(u64) + sizeof(bitmap)) % 512)];
+    char pad[BSIZE - ((5 * sizeof(u64) + sizeof(bitmap)) % BSIZE)];
     entry entries[ENTRY_NUMS];
 };
 
@@ -46,26 +46,14 @@ struct MemoryEntry{
     i64 cur_block;
 };
 
-struct dinode{
-    char pad[512 - sizeof(i64)];
-    i64 next;
-};
-
 const int ENTRY_PER_BLOCK = BSIZE / sizeof(entry);
 
 struct Data{
-    char buf[512 - sizeof(i64)];
+    char buf[BSIZE - sizeof(i64)];
     i64 next;
 };
 
-struct inode
-{
-    bool dirty;
-    i64 block_no;
-    Data *data;
-};
-
-const int INODE_BUFFER_SIZE = (512 - sizeof(i64));
+const int INODE_BUFFER_SIZE = (BSIZE - sizeof(i64));
 
 enum
 {

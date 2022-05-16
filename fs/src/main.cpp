@@ -6,7 +6,7 @@
 
 int main()
 {
-    init("raw1", true);
+    init("raw1", false);
     auto file = create("1234");
     close(file);
 

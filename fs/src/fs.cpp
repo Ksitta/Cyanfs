@@ -13,14 +13,10 @@
 #include "fs.h"
 #include "lru.h"
 
-const int CACHE_SIZE = 1024;
-
 static struct superblock sb __attribute__((aligned(4096)));
-static Data databuf[CACHE_SIZE] __attribute__((aligned(4096)));
+static Data databuf __attribute__((aligned(4096)));
 
 static int fd = 0;
-static inode inodes[CACHE_SIZE];
-static FindReplace lru(CACHE_SIZE);
 
 void create_disk(const std::string &path){
     fd = open(path.c_str(), O_CREAT | O_EXCL | O_WRONLY, 0777);
@@ -32,9 +28,9 @@ void create_disk(const std::string &path){
     sb.entry_start = sizeof(superblock) / BSIZE;
     memset(sb.bitmap, 0, sizeof(sb.bitmap));
     write(fd, &sb, sizeof(sb));
-    char *tmp = new char[1 << 30];
-    memset(tmp, 0, sizeof(char) * (1 << 30));
-    write(fd, tmp, sizeof(char) * (1 << 30));
+    char *tmp = new char[DISK_SIZE];
+    memset(tmp, 0, DISK_SIZE);
+    write(fd, tmp, DISK_SIZE);
     delete[] tmp;
     close(fd);
 }
@@ -58,28 +54,18 @@ void init(const std::string &path, bool format) {
         lseek(fd, 0, SEEK_SET);
         write(fd, &sb, sizeof(sb));
     }
-    memset(inodes, 0, sizeof(inode) * CACHE_SIZE);
-    memset(databuf, 0, sizeof(Data) * CACHE_SIZE);
-    for(int i = 0; i < CACHE_SIZE; i++){
-        inodes[i].data = &databuf[i];
-    }
 }
 
-void write_disk(inode *node) {
-    if (node->dirty == false) {
-        return;
-    }
-    node->dirty = false;
-    lseek(fd, node->block_no * BSIZE, SEEK_SET);
-    write(fd, (void *)(node->data), BSIZE);
+void read_disk(int block_no){
+    lseek(fd, block_no * BSIZE, SEEK_SET);
+    int size = read(fd, &databuf, BSIZE);
+    assert(size == BSIZE);
 }
 
-int alloc_cache(){
-    int pos = lru.find();
-    if (inodes[pos].dirty) {
-        write_disk(&inodes[pos]);
-    }
-    return pos;
+
+void write_disk(int block_no) {
+    lseek(fd, block_no * BSIZE, SEEK_SET);
+    write(fd, &databuf, BSIZE);
 }
 
 void write_entry(int pos) {
@@ -90,24 +76,6 @@ void write_entry(int pos) {
 
 void sync_fs(){
     fsync(fd);
-}
-
-inode *read_disk(int block_no){
-    for (int i = 0; i < CACHE_SIZE; i++)
-        if (inodes[i].block_no == block_no)
-            return inodes + i;
-    int pos = alloc_cache();
-    lseek(fd, block_no * BSIZE, SEEK_SET);
-    int size = read(fd, inodes[pos].data, BSIZE);
-    assert(size == BSIZE);
-    inodes[pos].block_no = block_no;
-    inodes[pos].dirty = false;
-    return &inodes[pos];
-}
-
-void mark_dirty(inode *node)
-{
-    node->dirty = true;
 }
 
 i64 find_block(int start = 0) {
@@ -140,16 +108,16 @@ int append(MemoryEntry *p_mentry) {
         write_entry(p_mentry->pos);
         return pos;
     }
-    inode *node;
-    node = read_disk(p_entry->last_block);
-    node->data->next = find_block(p_entry->last_block);
-    p_entry->last_block = node->data->next;
+    i64 where = p_entry->last_block;
+    read_disk(where);
+    databuf.next = find_block(p_entry->last_block);
+    p_entry->last_block = databuf.next;
     if (p_mentry->cur_block == -1) {
         p_mentry->cur_block = p_entry->last_block;
     }
-    mark_dirty(node);
+    write_disk(where);
     write_entry(p_mentry->pos);
-    return node->data->next;
+    return databuf.next;
 }
 
 int find_entry(){
@@ -207,13 +175,14 @@ int write(MemoryEntry *ment, const char *buffer, int len){
         int current_from = ent->fsize % INODE_BUFFER_SIZE;
         if (current_from == 0){
             append(ment);
+        } else {
+            read_disk(ent->last_block);
         }
         int write_size = min(INODE_BUFFER_SIZE - current_from, len - p);
-        inode *block = read_disk(ent->last_block);
-        memcpy(block->data->buf + current_from, buffer + p, write_size);
+        memcpy(databuf.buf + current_from, buffer + p, write_size);
         p += write_size;
         ent->fsize += write_size;
-        mark_dirty(block);
+        write_disk(ent->last_block);
     }
 
     return len;
@@ -234,16 +203,16 @@ int read(MemoryEntry *ment, char *buffer, int len){
     int current = ment->offset;
     while (p < len && current < fsize){
         int current_from = current % INODE_BUFFER_SIZE;
-        inode *cur_inode = read_disk(ment->cur_block);
+        read_disk(ment->cur_block);
         int read_size = min(min(INODE_BUFFER_SIZE - current_from, len - p),
                             fsize - current);
-        memcpy(buffer + p, cur_inode->data->buf + current_from, read_size);
+        memcpy(buffer + p, databuf.buf + current_from, read_size);
         p += read_size;
         current += read_size;
         ment->offset += read_size;
         if (current % INODE_BUFFER_SIZE == 0)
         {
-            ment->cur_block = cur_inode->data->next;
+            ment->cur_block = databuf.next;
         }
     }
     return p;
@@ -262,12 +231,12 @@ int seek(MemoryEntry *ment, u64 offset, int from){
         ment->cur_block = ent->block_start;
     }
     while (ment->offset < offset){
-        inode *cur_inode = read_disk(ment->cur_block);
+        read_disk(ment->cur_block);
         int current_from = ment->offset % INODE_BUFFER_SIZE;
         int move_size = min(INODE_BUFFER_SIZE - current_from, offset - ment->offset);
         ment->offset += move_size;
         if (ment->offset % INODE_BUFFER_SIZE == 0){
-            ment->cur_block = cur_inode->data->next;
+            ment->cur_block = databuf.next;
         }
     }
     return ment->offset;
@@ -286,16 +255,7 @@ int close(MemoryEntry *p) {
     return -1;
 }
 
-void clear_cache() {
-    for (int i = 0; i < CACHE_SIZE; i++) {
-        if (inodes[i].dirty) {
-            write_disk(&inodes[i]);
-        }
-    }
-}
-
 void destroy() {
-    clear_cache();
     close(fd);
 }
 
@@ -324,8 +284,8 @@ bool remove_file(const char *filename) {
     while (block != sb.entries[mement->pos].last_block) {
         i64 pos = block - sb.data_start;
         sb.bitmap[pos / 8] &= ~(1 << (pos % 8));
-        inode *t = read_disk(block);
-        block = t->data->next;
+        read_disk(block);
+        block = databuf.next;
     }
     if (block != -1) {
         i64 pos = block - sb.data_start;

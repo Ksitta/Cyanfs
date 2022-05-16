@@ -30,23 +30,45 @@ KVStore::KVStore(const std::string &dir, bool format) : dir(dir) {
     remove_file("new");
   }
   offset = 0;
+  bool broken = false;
   while (1) {
     int len[2];
     std::string key, val;
-    read(file, (char *)len, 8);
     if (eof(file)) {
       break;
     }
+    int read_size = read(file, (char *)len, 8);
+    if(read_size != 8){
+      broken = true;
+      break;
+    }
     key.resize(len[0]);
-    read(file, &key[0], len[0]);
+    read_size = read(file, &key[0], len[0]);
+    if(read_size != len[0]){
+      broken = true;
+      break;
+    }
     if (len[1]) {
       val.resize(len[1]);
-      read(file, &val[0], len[1]);
+      read_size = read(file, &val[0], len[1]);
+      if(read_size != len[1]){
+        broken = true;
+        break;
+      }
       mp[key] = val;
     } else {
       mp.erase(key);
     }
     offset += 8 + len[0] + len[1];
+  }
+  if(broken){
+    close(file);
+    MemoryEntry * newfile = create("new");
+    savekv(newfile);
+    remove_file("current");
+    rename_file("new", "current");
+    file = newfile;
+    newfile = nullptr;
   }
 }
 
