@@ -82,6 +82,6 @@ std::vector<std::string> lsdir();
 bool remove_file(const char *);
 bool rename_file(const char *oldname, const char *newname);
 bool eof(MemoryEntry *);
-int sync_fs();
+void sync_fs();
 
 #endif
