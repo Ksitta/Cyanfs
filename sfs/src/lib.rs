@@ -1,8 +1,5 @@
 use bitmap_allocator::{BitAlloc, BitAlloc256M};
 
-use cannyls::nvm::NonVolatileMemory;
-use cannyls::storage::Storage;
-
 use fuser::{
     Filesystem, KernelConfig, ReplyAttr, ReplyDirectory, ReplyEmpty, ReplyEntry, ReplyStatfs,
     Request, FUSE_ROOT_ID,
@@ -24,9 +21,17 @@ pub mod block_dev;
 pub mod inode;
 use crate::inode::*;
 
-pub struct SFS<const BLOCK_SIZE: usize, T: NonVolatileMemory> {
+use autocxx::prelude::*;
+
+include_cpp! {
+    #include "kv.h"
+    safety!(unsafe)
+    generate!("KVStore")
+}
+
+pub struct SFS<const BLOCK_SIZE: usize> {
     dev: Arc<Mutex<block_cache::BlockCache<BLOCK_SIZE>>>,
-    meta: Arc<Mutex<InodeCache<BLOCK_SIZE, T>>>,
+    meta: Arc<Mutex<InodeCache<BLOCK_SIZE>>>,
     block_allocator: Box<BitAlloc256M>,
     inode_allocator: Box<BitAlloc256M>,
 }
@@ -41,15 +46,17 @@ fn new_allocator(avail: Range<usize>) -> Box<BitAlloc256M> {
     allocator
 }
 
-impl<const BLOCK_SIZE: usize, T: NonVolatileMemory> SFS<BLOCK_SIZE, T> {
-    pub fn new(data: &str, block_cache: usize, inode_cache: usize, db: Storage<T>) -> Self {
+impl<const BLOCK_SIZE: usize> SFS<BLOCK_SIZE> {
+    pub fn new(data: &str, meta: &str, block_cache: usize, inode_cache: usize) -> Self {
+        cxx::let_cxx_string!(meta = meta);
+        let mut store = ffi::KVStore::new(&meta, true).within_unique_ptr();
         let dev = Arc::new(Mutex::new(
             block_cache::BlockCache::new(data, block_cache).unwrap(),
         ));
         Self {
             dev: dev.clone(),
             meta: Arc::new(Mutex::new(InodeCache::new(
-                Arc::new(Mutex::new(db)),
+                Arc::new(Mutex::new(store)),
                 dev,
                 inode_cache,
             ))),
@@ -136,7 +143,7 @@ impl<const BLOCK_SIZE: usize, T: NonVolatileMemory> SFS<BLOCK_SIZE, T> {
     }
 }
 
-impl<const BLOCK_SIZE: usize, T: NonVolatileMemory> Filesystem for SFS<BLOCK_SIZE, T> {
+impl<const BLOCK_SIZE: usize> Filesystem for SFS<BLOCK_SIZE> {
     fn init(&mut self, req: &Request, _config: &mut KernelConfig) -> Result<(), c_int> {
         if self
             .meta

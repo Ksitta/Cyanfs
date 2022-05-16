@@ -14,3 +14,9 @@ simple_logger = "2.1.0"
 bitmap-allocator = { git = "https://github.com/rcore-os/bitmap-allocator" }
 cannyls = "0.10.0"
 argh = "0.1.7"
+autocxx = "0.22.0"
+cxx = "1.0"
+
+[build-dependencies]
+autocxx-build = "0.22.0"
+miette = { version="4.3", features=["fancy"] }
