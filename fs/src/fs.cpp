@@ -54,11 +54,9 @@ void init(const std::string &path, bool format) {
         sb.entry_size = ENTRY_NUMS;
         sb.entry_start = sizeof(superblock) / BSIZE;
         memset(sb.bitmap, 0, sizeof(sb.bitmap));
+        memset(sb.entries, 0, sizeof(sb.entries));
         lseek(fd, 0, SEEK_SET);
         write(fd, &sb, sizeof(sb));
-        char *tmp = new char[1 << 30];
-        memset(tmp, 0, sizeof(char) * (1 << 30));
-        write(fd, tmp, sizeof(char) * (1 << 30));
     }
     memset(inodes, 0, sizeof(inode) * CACHE_SIZE);
     memset(databuf, 0, sizeof(Data) * CACHE_SIZE);
@@ -298,8 +296,6 @@ void clear_cache() {
 
 void destroy() {
     clear_cache();
-    lseek(fd, 0, SEEK_SET);
-    write(fd, &sb, sizeof(superblock));
     close(fd);
 }
 

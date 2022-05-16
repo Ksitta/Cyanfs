@@ -19,7 +19,6 @@ void KVStore::savekv(MemoryEntry * ment){
 KVStore::KVStore(const std::string &dir, bool format) : dir(dir) {
   init(dir, format);
   file = open("current");
-  MemoryEntry *newfile = nullptr;
   if (file == nullptr) {
     file = open("new");
     if (file == nullptr) {
@@ -28,12 +27,7 @@ KVStore::KVStore(const std::string &dir, bool format) : dir(dir) {
       rename_file("new", "current");
     }
   } else {
-    newfile = open("new");
-    if (newfile) {
-      close(newfile);
-      remove_file("new");
-    }
-    newfile = create("new");
+    remove_file("new");
   }
   offset = 0;
   while (1) {
@@ -54,18 +48,15 @@ KVStore::KVStore(const std::string &dir, bool format) : dir(dir) {
     }
     offset += 8 + len[0] + len[1];
   }
-  if(newfile){
-      savekv(newfile);
-      close(file);
-      remove_file("current");
-      rename_file("new", "current");
-      file = newfile;
-      newfile = nullptr;
-  }
 }
 
 KVStore::~KVStore() {
   close(file);
+  MemoryEntry * newfile = create("new");
+  savekv(newfile);
+  remove_file("current");
+  rename_file("new", "current");
+  close(newfile);
   destroy();
 }
 
