@@ -16,7 +16,7 @@ private:
   std::unordered_map<std::string, std::string> mp;
 
 public:
-  KVStore(const std::string &dir);
+  KVStore(const std::string &dir, bool format);
   ~KVStore();
   int size() const;
   bool get(const std::string &key, std::string &value) const;

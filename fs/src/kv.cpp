@@ -7,8 +7,8 @@
 #include "fs.h"
 #include "kv.h"
 
-KVStore::KVStore(const std::string &dir) : dir(dir) {
-  init(dir);
+KVStore::KVStore(const std::string &dir, bool format) : dir(dir) {
+  init(dir, format);
   file = open("current");
   MemoryEntry *newfile = nullptr;
   if (file == nullptr) {

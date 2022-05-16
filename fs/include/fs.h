@@ -13,6 +13,8 @@ const u64 BSIZE = 512;
 const int BITMAP_SIZE = DISK_SIZE / BSIZE / 8;
 const int ENTRY_NUMS = 512;
 
+const u64 MAGICNUM = 0x202205012;
+
 struct entry
 {
     char name[64 - 3 * sizeof(u64) - sizeof(int)];
@@ -24,12 +26,13 @@ struct entry
 
 struct superblock
 {
+    u64 magic_number;
     u64 block_nums;
     i64 entry_start;
     i64 data_start;
     u64 entry_size;
     u8 bitmap[BITMAP_SIZE];
-    char pad[512 - ((4 * sizeof(u64) + sizeof(bitmap)) % 512)];
+    char pad[512 - ((5 * sizeof(u64) + sizeof(bitmap)) % 512)];
     entry entries[ENTRY_NUMS];
 };
 
@@ -70,7 +73,7 @@ enum
 };
 
 void create_disk(const std::string &path);
-void init(const std::string &path);
+void init(const std::string &path, bool format);
 MemoryEntry *create(const char *);
 int write(MemoryEntry *, const char *, int);
 int read(MemoryEntry *, char *, int);

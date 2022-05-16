@@ -21,8 +21,9 @@ static inode inodes[CACHE_SIZE];
 static FindReplace lru(CACHE_SIZE);
 
 void create_disk(const std::string &path){
-    fd = open((path + "/raw").c_str(), O_CREAT | O_EXCL | O_WRONLY, 0777);
+    fd = open(path.c_str(), O_CREAT | O_EXCL | O_WRONLY, 0777);
     assert(fd >= 0);
+    sb.magic_number = MAGICNUM;
     sb.block_nums = (DISK_SIZE - sizeof(superblock) - sizeof(entry) * ENTRY_NUMS) / BSIZE;
     sb.data_start = (sizeof(superblock) + sizeof(entry) * ENTRY_NUMS) / BSIZE;
     sb.entry_size = ENTRY_NUMS;
@@ -36,10 +37,27 @@ void create_disk(const std::string &path){
     close(fd);
 }
 
-void init(const std::string &path) {
-    fd = open((path + "/raw").c_str(), O_RDWR | O_NOATIME, 0777);
+void init(const std::string &path, bool format) {
+    fd = open(path.c_str(), O_RDWR | O_NOATIME, 0777);
+    if(fd == -1){
+        create_disk(path);
+        fd = open(path.c_str(), O_RDWR | O_NOATIME, 0777);
+    }
     assert(fd >= 0);
     read(fd, &sb, sizeof(superblock));
+    if(sb.magic_number != MAGICNUM || format){
+        sb.magic_number = MAGICNUM;
+        sb.block_nums = (DISK_SIZE - sizeof(superblock) - sizeof(entry) * ENTRY_NUMS) / BSIZE;
+        sb.data_start = (sizeof(superblock) + sizeof(entry) * ENTRY_NUMS) / BSIZE;
+        sb.entry_size = ENTRY_NUMS;
+        sb.entry_start = sizeof(superblock) / BSIZE;
+        memset(sb.bitmap, 0, sizeof(sb.bitmap));
+        lseek(fd, 0, SEEK_SET);
+        write(fd, &sb, sizeof(sb));
+        char *tmp = new char[1 << 30];
+        memset(tmp, 0, sizeof(char) * (1 << 30));
+        write(fd, tmp, sizeof(char) * (1 << 30));
+    }
     memset(inodes, 0, sizeof(inode) * CACHE_SIZE);
 }
 
