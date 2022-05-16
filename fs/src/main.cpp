@@ -5,16 +5,20 @@
 
 int main()
 {
-    create_disk();
-    init();
-    create("123");
-    KVStore *kv = new KVStore("123");
-    kv->put("123", "456");
-    std::string a;
-    bool ret = kv->get("123", a);
-    printf("result %d\n", ret);
-    printf("%s\n", a.c_str());
-    delete kv;
+    create_disk(".");
+    init(".");
+    MemoryEntry * mem = create("123");
+    write(mem, "123456", 6);
+    close(mem);
+    auto names = lsdir();
+    for(auto each : names){
+        printf("%s\n", each.c_str());
+    }
+    remove_file("123");
+    names = lsdir();
+    for(auto each : names){
+        printf("%s\n", each.c_str());
+    }
     destroy();
     return 0;
 }

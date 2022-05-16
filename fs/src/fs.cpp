@@ -294,7 +294,7 @@ std::vector<std::string> lsdir(){
     return ret;
 }
 
-bool remove_file(char *filename) {
+bool remove_file(const char *filename) {
     MemoryEntry *mement = look_up(filename);
     if (mement == nullptr) {
         return false;
