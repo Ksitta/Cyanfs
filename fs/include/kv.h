@@ -19,7 +19,7 @@ public:
   KVStore(const std::string &dir, bool format);
   ~KVStore();
   int size() const;
-  bool get(const std::string &key, std::string &value) const;
+  std::string get(const std::string &key) const;
   bool put(const std::string &key, const std::string &val);
   bool remove(const std::string &key);
   std::vector<std::string> list() const;

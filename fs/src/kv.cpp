@@ -71,13 +71,12 @@ KVStore::~KVStore() {
 
 int KVStore::size() const { return mp.size(); }
 
-bool KVStore::get(const std::string &key, std::string &value) const {
+std::string KVStore::get(const std::string &key) const {
   auto iter = mp.find(key);
   if (iter != mp.end()) {
-    value = iter->second;
-    return true;
+    return iter->second;
   }
-  return false;
+  return "";
 }
 
 bool KVStore::put(const std::string &key, const std::string &val) {
