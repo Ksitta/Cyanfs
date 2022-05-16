@@ -8,7 +8,7 @@ use fuser::{
     Request, FUSE_ROOT_ID,
 };
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::ops::Range;
 use std::os::raw::c_int;
@@ -48,7 +48,11 @@ impl<const BLOCK_SIZE: usize, T: NonVolatileMemory> SFS<BLOCK_SIZE, T> {
         ));
         Self {
             dev: dev.clone(),
-            meta: Arc::new(Mutex::new(InodeCache::new(Arc::new(Mutex::new(db)), dev, inode_cache))),
+            meta: Arc::new(Mutex::new(InodeCache::new(
+                Arc::new(Mutex::new(db)),
+                dev,
+                inode_cache,
+            ))),
             block_allocator: new_allocator(0..BitAlloc256M::CAP),
             inode_allocator: new_allocator(FUSE_ROOT_ID as usize..BitAlloc256M::CAP),
         }
@@ -90,7 +94,7 @@ impl<const BLOCK_SIZE: usize, T: NonVolatileMemory> SFS<BLOCK_SIZE, T> {
             rdev: 0,
             flags: 0,
             link: std::path::PathBuf::new(),
-            entries: HashMap::new(),
+            entries: BTreeMap::new(),
         }
     }
     pub fn remove_dirent(&mut self, parent: u64, name: &OsStr) -> Result<DirEntry, c_int> {
@@ -159,7 +163,10 @@ impl<const BLOCK_SIZE: usize, T: NonVolatileMemory> Filesystem for SFS<BLOCK_SIZ
             .unwrap();
         Ok(())
     }
-    fn destroy(&mut self) {}
+    fn destroy(&mut self) {
+        self.meta.lock().unwrap().flush();
+        self.dev.lock().unwrap().flush();
+    }
     fn forget(&mut self, _req: &Request<'_>, _ino: u64, _nlookup: u64) {}
     fn read(
         &mut self,
