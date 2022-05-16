@@ -15,7 +15,7 @@
 #include "fs.h"
 #include "lru.h"
 
-const int CACHE_SIZE = 1024;
+const int CACHE_SIZE = 1;
 
 static struct superblock sb __attribute__((aligned(4096)));
 static Data databuf[CACHE_SIZE] __attribute__((aligned(4096)));
