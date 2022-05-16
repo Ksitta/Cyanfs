@@ -86,5 +86,6 @@ bool remove_file(const char *);
 bool rename_file(const char *oldname, const char *newname);
 bool eof(MemoryEntry *);
 void sync_fs();
+u64 fsize(MemoryEntry *ent);
 
 #endif
