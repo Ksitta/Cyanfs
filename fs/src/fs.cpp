@@ -2,7 +2,9 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
+#include <iostream>
 #include <unistd.h>
+#include <errno.h>
 
 #include <string>
 #include <utility>
@@ -23,7 +25,9 @@ static inode inodes[CACHE_SIZE];
 static FindReplace lru(CACHE_SIZE);
 
 void create_disk(const std::string &path){
+    std::cout << path << std::endl;
     fd = open(path.c_str(), O_CREAT | O_EXCL | O_WRONLY, 0777);
+    std::cout << errno << std::endl;
     assert(fd >= 0);
     sb.magic_number = MAGICNUM;
     sb.block_nums = (DISK_SIZE - sizeof(superblock) - sizeof(entry) * ENTRY_NUMS) / BSIZE;
