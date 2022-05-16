@@ -77,10 +77,11 @@ int read(MemoryEntry *, char *, int);
 MemoryEntry *open(const char *);
 int close(MemoryEntry *);
 void destroy();
-int seek(MemoryEntry *, int, int);
+int seek(MemoryEntry *, u64, int);
 std::vector<std::string> lsdir();
 bool remove_file(const char *);
 bool rename_file(const char *oldname, const char *newname);
 bool eof(MemoryEntry *);
+int sync_fs();
 
 #endif

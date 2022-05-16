@@ -66,12 +66,15 @@ void write_entry(int pos) {
     assert(size == BSIZE);
 }
 
+void sync_fs(){
+    fsync(fd);
+}
+
 inode *read_disk(int block_no){
     for (int i = 0; i < CACHE_SIZE; i++)
         if (inodes[i].block_no == block_no)
             return inodes + i;
     int pos = alloc_cache();
-    // fsync(fd);
     lseek(fd, block_no * BSIZE, SEEK_SET);
     int size = read(fd, &inodes[pos].data, BSIZE);
     assert(size == BSIZE);
@@ -85,8 +88,12 @@ void mark_dirty(inode *node)
     node->dirty = true;
 }
 
-i64 find_block() {
-    for (int i = 0; i < BITMAP_SIZE; i++) {
+i64 find_block(int start = 0) {
+    int fstart = (start - sb.data_start) / 8;
+    if(fstart < 0) {
+        fstart = 0;
+    }
+    for (int i = fstart; i < BITMAP_SIZE; i++) {
         if (sb.bitmap[i] != 0xff) {
             for (int j = 0; j < 8; j++) {
                 if ((sb.bitmap[i] & (1 << j)) == 0) {
@@ -104,7 +111,7 @@ int append(MemoryEntry *p_mentry) {
     i64 next_pos = p_entry->block_start;
     i64 pos = next_pos;
     if (next_pos == -1) {
-        i64 pos = find_block();
+        i64 pos = find_block(p_entry->last_block);
         p_entry->block_start = pos;
         p_entry->last_block = pos;
         p_mentry->cur_block = pos;
@@ -113,7 +120,7 @@ int append(MemoryEntry *p_mentry) {
     }
     inode *node;
     node = read_disk(p_entry->last_block);
-    node->data.next = find_block();
+    node->data.next = find_block(p_entry->last_block);
     p_entry->last_block = node->data.next;
     if (p_mentry->cur_block == -1) {
         p_mentry->cur_block = p_entry->last_block;
@@ -220,7 +227,7 @@ int read(MemoryEntry *ment, char *buffer, int len){
     return p;
 }
 
-int seek(MemoryEntry *ment, int offset, int from){
+int seek(MemoryEntry *ment, u64 offset, int from){
     entry *ent = &(sb.entries[ment->pos]);
     if (from == SEEK_C) {
         offset += ment->offset;
