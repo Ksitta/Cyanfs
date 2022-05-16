@@ -8,4 +8,5 @@ set(CMAKE_SOURCE_DIR src)
 include_directories(include)
 aux_source_directory(${CMAKE_SOURCE_DIR} DIR)
 
-add_executable(fs ${DIR} )
+add_executable(fs ${DIR})
+add_library(kv SHARED ${DIR})
