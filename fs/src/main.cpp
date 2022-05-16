@@ -7,22 +7,18 @@ int main()
 {
     create_disk(".");
     init(".");
-    KVStore *kv = new KVStore();
-
-    kv->put("123", "234");
-    std::string val;
-    kv->get("123", val);
-
-    printf("%s\n", val.c_str());
-    delete kv;
-
-    val = "";
-
-    kv = new KVStore();
-    kv->get("123", val);
-    printf("%s\n", val.c_str());
-    delete kv;
-
+    MemoryEntry * mem = create("123");
+    write(mem, "123456", 6);
+    close(mem);
+    auto names = lsdir();
+    for(auto each : names){
+        printf("%s\n", each.c_str());
+    }
+    remove_file("123");
+    names = lsdir();
+    for(auto each : names){
+        printf("%s\n", each.c_str());
+    }
     destroy();
     return 0;
 }
