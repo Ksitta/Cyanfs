@@ -184,7 +184,7 @@ int write(MemoryEntry *ment, const char *buffer, int len){
         ent->fsize += write_size;
         write_disk(ent->last_block);
     }
-
+    write_entry(ment->pos);
     return len;
 }
 
