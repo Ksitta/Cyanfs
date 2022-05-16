@@ -53,15 +53,16 @@ struct dinode{
 
 const int ENTRY_PER_BLOCK = BSIZE / sizeof(entry);
 
+struct Data{
+    char buf[512 - sizeof(i64)];
+    i64 next;
+};
+
 struct inode
 {
     bool dirty;
     i64 block_no;
-    struct
-    {
-        char buf[512 - sizeof(i64)];
-        i64 next;
-    } data;
+    Data *data;
 };
 
 const int INODE_BUFFER_SIZE = (512 - sizeof(i64));
