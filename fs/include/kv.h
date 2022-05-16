@@ -14,7 +14,7 @@ private:
   MemoryEntry *file;
   std::string dir;
   std::unordered_map<std::string, std::string> mp;
-
+  void savekv(MemoryEntry * ment);
 public:
   KVStore(const std::string &dir, bool format);
   ~KVStore();

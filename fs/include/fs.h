@@ -17,7 +17,7 @@ const u64 MAGICNUM = 0x202205012;
 
 struct entry
 {
-    char name[64 - 3 * sizeof(u64) - sizeof(int)];
+    char name[128 - 3 * sizeof(u64) - sizeof(int)];
     int used;
     i64 block_start;
     u64 fsize;

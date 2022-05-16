@@ -336,7 +336,13 @@ bool remove_file(const char *filename) {
 
 bool rename_file(const char *oldname, const char *newname) {
     MemoryEntry *mement = look_up(oldname);
+    MemoryEntry *mementnew = look_up(newname);
     if (mement == nullptr) {
+        return false;
+    }
+    if (mementnew) {
+        delete mement;
+        delete mementnew;
         return false;
     }
     strcpy(sb.entries[mement->pos].name, newname);

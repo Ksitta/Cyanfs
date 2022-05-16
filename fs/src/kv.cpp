@@ -7,6 +7,15 @@
 #include "fs.h"
 #include "kv.h"
 
+void KVStore::savekv(MemoryEntry * ment){
+  for(const auto & each : mp){
+    int log_size[2] = {int(each.first.size()), int(each.second.size())};
+    write(ment, (char *)log_size, 8);
+    write(ment, each.first.c_str(), log_size[0]);
+    write(ment, each.second.c_str(), log_size[1]);
+  }
+}
+
 KVStore::KVStore(const std::string &dir, bool format) : dir(dir) {
   init(dir, format);
   file = open("current");
@@ -18,15 +27,14 @@ KVStore::KVStore(const std::string &dir, bool format) : dir(dir) {
     } else {
       rename_file("new", "current");
     }
+  } else {
+    newfile = open("new");
+    if (newfile) {
+      close(newfile);
+      remove_file("new");
+    }
+    newfile = create("new");
   }
-//   } else {
-//     newfile = open("new");
-//     if (newfile) {
-//       close(newfile);
-//       remove_file("new");
-//     }
-//     newfile = create("new");
-//   }
   offset = 0;
   while (1) {
     int len[2];
@@ -46,9 +54,14 @@ KVStore::KVStore(const std::string &dir, bool format) : dir(dir) {
     }
     offset += 8 + len[0] + len[1];
   }
-//   if(newfile){
-//       savekv(newfile);
-//   }
+  if(newfile){
+      savekv(newfile);
+      close(file);
+      remove_file("current");
+      rename_file("new", "current");
+      file = newfile;
+      newfile = nullptr;
+  }
 }
 
 KVStore::~KVStore() {
