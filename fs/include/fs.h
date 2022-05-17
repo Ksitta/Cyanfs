@@ -32,9 +32,12 @@ struct superblock
     i64 data_start;
     u64 entry_size;
     u8 bitmap[BITMAP_SIZE];
-    char pad[BSIZE - ((5 * sizeof(u64) + sizeof(bitmap)) % BSIZE)];
+    u64 error_check;
+    char pad[BSIZE - ((6 * sizeof(u64) + sizeof(bitmap)) % BSIZE)];
     entry entries[ENTRY_NUMS];
 };
+
+const int ERROR_CHECK_WRITE = 6 * sizeof(u64) + sizeof(superblock::bitmap) + (BSIZE - ((6 * sizeof(u64) + sizeof(superblock::bitmap)) % BSIZE));
 
 const int ENTRY_POS = sizeof(superblock) - sizeof(superblock::entries);
 

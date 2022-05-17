@@ -26,6 +26,7 @@ void create_disk(const std::string &path){
     sb.data_start = (sizeof(superblock) + sizeof(entry) * ENTRY_NUMS) / BSIZE;
     sb.entry_size = ENTRY_NUMS;
     sb.entry_start = sizeof(superblock) / BSIZE;
+    sb.error_check = 1;
     memset(sb.bitmap, 0, sizeof(sb.bitmap));
     write(fd, &sb, sizeof(sb));
     char *tmp = new char[DISK_SIZE];
@@ -33,6 +34,46 @@ void create_disk(const std::string &path){
     write(fd, tmp, DISK_SIZE);
     delete[] tmp;
     close(fd);
+}
+
+void read_disk(int block_no){
+    lseek(fd, block_no * BSIZE, SEEK_SET);
+    int size = read(fd, &databuf, BSIZE);
+    assert(size == BSIZE);
+}
+
+
+void write_disk(int block_no) {
+    lseek(fd, block_no * BSIZE, SEEK_SET);
+    write(fd, &databuf, BSIZE);
+}
+
+void setbitmap(entry * ent){
+    if(ent->fsize == 0){
+        return;
+    }
+    i64 pos = ent->block_start;
+    while(pos != ent->last_block){
+        int i = (pos - sb.data_start) / 8;
+        int j = (pos - sb.data_start) % 8;
+        sb.bitmap[i] |= (1 << j);
+        read_disk(pos);
+        pos = databuf.next;
+    }
+    if(pos != -1){
+        int i = (pos - sb.data_start) / 8;
+        int j = (pos - sb.data_start) % 8;
+        sb.bitmap[i] |= (1 << j);
+    }
+}
+
+void recover(){
+    memset(sb.bitmap, 0, sizeof(sb.bitmap));
+    for(int i = 0; i < sb.entry_size; i++){
+        if(sb.entries[i].used){
+            setbitmap(&sb.entries[i]);
+        }
+    }
 }
 
 void init(const std::string &path, bool format) {
@@ -49,24 +90,20 @@ void init(const std::string &path, bool format) {
         sb.data_start = (sizeof(superblock) + sizeof(entry) * ENTRY_NUMS) / BSIZE;
         sb.entry_size = ENTRY_NUMS;
         sb.entry_start = sizeof(superblock) / BSIZE;
+        sb.error_check = 1;
         memset(sb.bitmap, 0, sizeof(sb.bitmap));
         memset(sb.entries, 0, sizeof(sb.entries));
         lseek(fd, 0, SEEK_SET);
         write(fd, &sb, sizeof(sb));
     }
+    if(sb.error_check == 0){
+        recover();
+    }
+    lseek(fd, 0, SEEK_SET);
+    sb.error_check = 0;
+    write(fd, &sb, ERROR_CHECK_WRITE);
 }
 
-void read_disk(int block_no){
-    lseek(fd, block_no * BSIZE, SEEK_SET);
-    int size = read(fd, &databuf, BSIZE);
-    assert(size == BSIZE);
-}
-
-
-void write_disk(int block_no) {
-    lseek(fd, block_no * BSIZE, SEEK_SET);
-    write(fd, &databuf, BSIZE);
-}
 
 void write_entry(int pos) {
     lseek(fd, ENTRY_POS + (pos / ENTRY_PER_BLOCK) * BSIZE, SEEK_SET);
@@ -99,9 +136,9 @@ i64 find_block(int start = 0) {
 int append(MemoryEntry *p_mentry) {
     entry *p_entry = &(sb.entries[p_mentry->pos]);
     i64 next_pos = p_entry->block_start;
-    i64 pos = next_pos;
     if (next_pos == -1) {
         i64 pos = find_block(p_entry->last_block);
+        assert(pos != p_entry->last_block);
         p_entry->block_start = pos;
         p_entry->last_block = pos;
         p_mentry->cur_block = pos;
@@ -110,14 +147,16 @@ int append(MemoryEntry *p_mentry) {
     }
     i64 where = p_entry->last_block;
     read_disk(where);
-    databuf.next = find_block(p_entry->last_block);
-    p_entry->last_block = databuf.next;
+    i64 pos = find_block(p_entry->last_block);
+    assert(pos != p_entry->last_block);
+    databuf.next = pos;
+    p_entry->last_block = pos;
     if (p_mentry->cur_block == -1) {
         p_mentry->cur_block = p_entry->last_block;
     }
     write_disk(where);
     write_entry(p_mentry->pos);
-    return databuf.next;
+    return pos;
 }
 
 int find_entry(){
@@ -256,6 +295,9 @@ int close(MemoryEntry *p) {
 }
 
 void destroy() {
+    sb.error_check = 1;
+    lseek(fd, 0, SEEK_SET);
+    write(fd, &sb, ERROR_CHECK_WRITE);
     close(fd);
 }
 
@@ -278,9 +320,9 @@ bool remove_file(const char *filename) {
     if (mement == nullptr) {
         return false;
     }
-    sb.entries[mement->pos].used = 0;
+    memset(&sb.entries[mement->pos], 0, sizeof(entry));
     write_entry(mement->pos);
-    i64 block = mement->cur_block;
+    i64 block = sb.entries[mement->pos].block_start;
     while (block != sb.entries[mement->pos].last_block) {
         i64 pos = block - sb.data_start;
         sb.bitmap[pos / 8] &= ~(1 << (pos % 8));
