@@ -175,10 +175,7 @@ pub struct InodeCache<const BLOCK_SIZE: usize> {
 }
 
 impl<const BLOCK_SIZE: usize> InodeCache<BLOCK_SIZE> {
-    pub fn new(
-        db: Arc<Mutex<cxx::UniquePtr<crate::ffi::KVStore>>>,
-        capacity: usize,
-    ) -> Self {
+    pub fn new(db: Arc<Mutex<cxx::UniquePtr<crate::ffi::KVStore>>>, capacity: usize) -> Self {
         Self {
             db,
             cache: LruCache::new(capacity),
@@ -220,6 +217,12 @@ impl<const BLOCK_SIZE: usize> InodeCache<BLOCK_SIZE> {
         self.cache.put(attrs.ino, attrs);
     }
 
+    pub fn remove(&mut self, ino: u64) {
+        self.cache.pop(&ino);
+        cxx::let_cxx_string!(key = ino.to_le_bytes());
+        self.db.lock().unwrap().as_mut().unwrap().remove(&key);
+    }
+
     pub fn read<V>(
         &mut self,
         ino: u64,
@@ -243,14 +246,22 @@ impl<const BLOCK_SIZE: usize> InodeCache<BLOCK_SIZE> {
     ) -> Result<V, c_int> {
         if let Some(attrs) = self.cache.get_mut(&ino) {
             let v = Ok(f(attrs));
-            let attrs = attrs.clone();
-            self.write_inode(&attrs);
+            if attrs.nlink > 0 {
+                let attrs = attrs.clone();
+                self.write_inode(&attrs);
+            } else {
+                self.remove(ino);
+            }
             v
         } else {
             self.read_inode(ino).map(|mut attrs| {
                 let v = f(&mut attrs);
-                self.write_inode(&attrs);
-                self.cache.put(ino, attrs);
+                if attrs.nlink > 0 {
+                    self.write_inode(&attrs);
+                    self.cache.put(ino, attrs);
+                } else {
+                    self.remove(ino);
+                }
                 v
             })
         }
