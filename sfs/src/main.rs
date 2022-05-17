@@ -29,6 +29,6 @@ fn main() {
         MountOption::AutoUnmount,
         MountOption::DefaultPermissions,
     ];
-    let fs: SFS<512> = SFS::new(&args.data, &args.meta, args.new, 2048, 2048);
+    let fs: SFS<4096> = SFS::new(&args.data, &args.meta, args.new, 2048, 2048);
     mount2(fs, args.mountpoint, &options).unwrap();
 }
