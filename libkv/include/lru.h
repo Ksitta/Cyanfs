@@ -2,7 +2,7 @@
 
 #include "linklist.h"
 
-class FindReplace {
+class LRU {
 private:
 	MyLinkList* list;
 	int CAP_;
@@ -38,7 +38,7 @@ public:
 	 * 构造函数
 	 * @参数c:表示缓存页面的容量上限
 	 */
-	FindReplace(int c) {
+	LRU(int c) {
 		CAP_ = c;
 		list = new MyLinkList(c, 1);
 		for (int i = 0; i < CAP_; ++ i) {
